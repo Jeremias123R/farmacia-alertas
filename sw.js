@@ -1,6 +1,6 @@
 const CACHE_NAME = "farmacia-inventario-v1";
 const FILES_TO_CACHE = [
-  "./inventario_farmacia.html",
+  "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
