@@ -115,6 +115,7 @@
       <p class="subtitle">Alertas de vencimiento y reposición de stock</p>
     </div>
     <div class="menu-wrap"><button id="menu-btn" class="menu-btn" aria-label="Abrir menú" aria-expanded="false">&#8942;</button><div id="menu-panel" class="menu-panel"><button id="kardex-btn">Kardex</button><button id="history-btn">Historial</button><button id="change-pass-btn">Contraseña</button><button id="logout-btn">Cerrar sesión</button></div></div>
+  </div>
   <div class="stats" id="stats"></div>
   <div class="toolbar">
     <h2>Medicamentos</h2>
@@ -166,32 +167,263 @@ const SUPABASE_URL = "https://evrgtdoltmudexfbuwil.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2cmd0ZG9sdG11ZGV4ZmJ1d2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNDg4ODEsImV4cCI6MjEwMzYyNDg4MX0.l7rmVqrl6BN-c1NQqFmXWnlQa0vdPmaF42Xxjld92Y";
 const TABLE_URL = SUPABASE_URL + "/rest/v1/Medicamentos";
 const MOVIMIENTOS_URL = SUPABASE_URL + "/rest/v1/movimientos";
-const HEADERS = {"apikey": SUPABASE_ANON_KEY,"Authorization": "Bearer " + SUPABASE_ANON_KEY,"Content-Type": "application/json","Prefer": "return=representation"};
-function getSavedSession(){const raw=localStorage.getItem("farmacia_session")||sessionStorage.getItem("farmacia_session");try{return raw?JSON.parse(raw):null}catch(e){return null}}
-function setSession(data,remember){const storage=remember?localStorage:sessionStorage;const other=remember?sessionStorage:localStorage;other.removeItem("farmacia_session");storage.setItem("farmacia_session",JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token}))}
-function setHeadersToken(token){HEADERS.Authorization="Bearer "+token;return HEADERS}
-async function refreshSession(){const session=getSavedSession();if(!session?.refresh_token)return false;const res=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{apikey:SUPABASEANONKEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:session.refresh_token})});if(!res.ok)return false;const data=await res.json();const remember=!!localStorage.getItem("farmacia_session");setSession(data,remember);setHeadersToken(data.access_token);return true}
-async function login(email,password,remember){const res=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:SUPABASEANONKEY,"Content-Type":"application/json"},body:JSON.stringify({email,password})});if(!res.ok)throw new Error("Credenciales inválidas");const data=await res.json();setSession(data,remember);return data.access_token}
-function logout(){localStorage.removeItem("farmacia_session");sessionStorage.removeItem("farmacia_session");location.reload()}
-function showApp(){document.getElementById("login-screen").style.display="none";document.getElementById("app-screen").style.display="block";loadMeds();}
-function showLogin(){document.getElementById("login-screen").style.display="block";document.getElementById("app-screen").style.display="none";}
-const menuBtn=document.getElementById("menu-btn"),menuPanel=document.getElementById("menu-panel");
-if(menuBtn&&menuPanel){menuBtn.onclick=()=>{const open=menuPanel.classList.toggle("open");menuBtn.setAttribute("aria-expanded",open)};document.addEventListener("click",e=>{if(!e.target.closest(".menu-wrap")){menuPanel.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}})}
-document.getElementById("login-btn").onclick=async()=>{const email=document.getElementById("login-email").value.trim();const password=document.getElementById("login-pass").value;const remember=document.getElementById("login-remember").checked;const errEl=document.getElementById("login-error");errEl.style.display="none";try{const token=await login(email,password,remember);setHeadersToken(token);showApp();}catch(err){errEl.style.display="block";}};
-document.getElementById("logout-btn").onclick=logout;
-document.getElementById("change-pass-btn").onclick=cambiarContrasena;
-document.getElementById("forgot-pass-link").onclick=async(e)=>{e.preventDefault();const email=document.getElementById("login-email").value.trim();if(!email){alert("Escribe tu correo arriba primero.");return;}try{await fetch(SUPABASE_URL+"/auth/v1/recover",{method:"POST",headers:{"apikey":SUPABASEANONKEY,"Content-Type":"application/json"},body:JSON.stringify({email})});alert("Si ese correo está registrado, te llegará un link.");}catch(err){alert("No se pudo enviar el correo.");}};
-async function cambiarContrasena(){const nueva=prompt("Escribe tu nueva contraseña (mínimo 6 caracteres):");if(!nueva)return;if(nueva.length<6){alert("La contraseña debe tener al menos 6 caracteres.");return;}try{const res=await fetch(SUPABASE_URL+"/auth/v1/user",{method:"PUT",headers:HEADERS,body:JSON.stringify({password:nueva})});if(!res.ok)throw new Error("Error "+res.status);alert("Contraseña actualizada correctamente.");}catch(err){alert("No se pudo cambiar la contraseña.");}}
-let historyVisible=false,kardexVisible=false;
-document.getElementById("kardex-btn").onclick=async()=>{kardexVisible=!kardexVisible;const panel=document.getElementById("kardex-panel");const histPanel=document.getElementById("history-panel");panel.style.display=kardexVisible?"block":"none";if(kardexVisible){histPanel.style.display="none";await loadKardex()}};
-document.getElementById("history-btn").onclick=async()=>{historyVisible=!historyVisible;const panel=document.getElementById("history-panel");const kardexPanel=document.getElementById("kardex-panel");panel.style.display=historyVisible?"block":"none";if(historyVisible){kardexPanel.style.display="none";await loadHistory()}};
-async function loadHistory(){const listEl=document.getElementById("history-list");listEl.innerHTML='<p style="font-size:13px;color:var(--gray-text);">Cargando...</p>';try{const res=await fetch(MOVIMIENTOS_URL+"?select=*&order=created_at.desc&limit=30",{headers:HEADERS});if(!res.ok)throw new Error("No se pudo cargar ("+res.status+")");const movimientos=await res.json();if(movimientos.length===0){listEl.innerHTML='<p style="font-size:13px;color:var(--gray-text);">Todavía no hay movimientos registrados.</p>';return;}listEl.innerHTML=movimientos.map(mv=>{const fecha=new Date(mv.created_at).toLocaleString('es-BO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});const signo=mv.Cantidad>0?'+':'';const etiqueta=mv.Tipo==='alta'?'Alta':(mv.Tipo==='entrada'?'Entrada':'Salida');return'<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid var(--border);padding:6px 0;"><span>'+fecha+' &middot; '+escapeHtml(mv.Medicamento_nombre||'')+'</span><span style="white-space:nowrap;margin-left:8px;">'+etiqueta+' ('+signo+mv.Cantidad+') &rarr; '+mv.Stock_resultante+'</span></div>';}).join('');}catch(err){listEl.innerHTML='<p style="font-size:13px;color:var(--red);">Error al cargar historial: '+err.message+'</p>';}}
-async function loadKardex(){const listEl=document.getElementById("kardex-list");const searchInput=document.getElementById("kardex-search");const filterSelect=document.getElementById("kardex-filter");listEl.innerHTML='<p style="font-size:13px;color:var(--gray-text);">Cargando kardex...</p>';try{const res=await fetch(MOVIMIENTOS_URL+"?select=*&order=created_at.desc&limit=500",{headers:HEADERS});if(!res.ok)throw new Error("No se pudo cargar: "+res.status);let movimientos=await res.json();const filterMov=()=>{const q=searchInput.value.toLowerCase().trim();const tipo=filterSelect.value;let filtered=movimientos;if(q)filtered=filtered.filter(m=>(m.Medicamento?.nombre||"").toLowerCase().includes(q)||(m.Medicamento?.laboratorio||"").toLowerCase().includes(q));if(tipo)filtered=filtered.filter(m=>m.Tipo===tipo);if(filtered.length===0){listEl.innerHTML='<p style="font-size:13px;color:var(--gray-text)">No hay movimientos que coincidan.</p>';return;}listEl.innerHTML=filtered.map(mv=>{const fecha=new Date(mv.created_at).toLocaleString("es-BO",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});const signo=mv.Cantidad>=0?"+":"";const etiqueta=mv.Tipo==="alta"?"Alta":mv.Tipo==="entrada"?"Entrada":"Salida";const badgeClass=mv.Tipo==="salida"?"badge expired":"badge ok";return'<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid var(--border);padding:6px 0"><div><span style="font-weight:600">'+fecha+'</span> · '+mv.Medicamento?.nombre||"Sin nombre"+(mv.Medicamento?.laboratorio?" · "+mv.Medicamento.laboratorio:"")+'</div><div><span class="'+badgeClass+'" style="white-space:nowrap;margin-left:8px">'+etiqueta+' '+signo+mv.Cantidad+'</span> <span style="font-size:11px;color:var(--gray-text)">→ Stock: '+mv.Stockresultante+'</span></div></div>';}).join("")};filterMov();searchInput.oninput=filterMov;filterSelect.onchange=filterMov;}catch(err){listEl.innerHTML='<p style="font-size:13px;color:var(--red)">Error al cargar kardex: '+err.message+'</p>';}}
-const savedSession=getSavedSession();if(savedSession?.access_token){setHeadersToken(savedSession.access_token);showApp();}else{showLogin();if(sessionStorage.getItem("farmacia_session_expired")){sessionStorage.removeItem("farmacia_session_expired");const errEl=document.getElementById("login-error");errEl.textContent="Tu sesión expiró, inicia sesión de nuevo.";errEl.style.display="block";}}
-const DAY=86400000;const today=new Date();today.setHours(0,0,0,0);let meds=[],searchQuery="";
-function fmtDate(iso){const d=new Date(iso+"T00:00:00");return d.toLocaleDateString('es-BO',{day:'2-digit',month:'short',year:'numeric'});}
-function daysTo(iso){const d=new Date(iso+"T00:00:00");return Math.round((d-today)/DAY);}
-function status(m){const d=daysTo(m.Fecha_vencimiento);const lowStock=m.Cantidad<=m.Stock_minimo;if(d<0)return{label:'Vencido',cls:'expired'};if(d<=30)return{label:'Vence en '+d+' días',cls:'soon'};if(lowStock)return{label:'Stock bajo',cls:'low'};return{label:'En orden',cls:'ok'};}
-async function loadMeds(){const statusEl=document.getElementById('status-msg');statusEl.style.display='block';statusEl.textContent='Cargando inventario...';statusEl.className='';try{const res=await fetch(TABLE_URL+"?select=*&order=Fecha_vencimiento.asc",{headers:HEADERS});if(res.status===401&&await refreshSession()){return loadMeds();}if(res.status===401){sessionStorage.setItem("farmacia_session_expired","1");logout();return;}if(!res.ok){const body=await res.text();throw new Error("("+res.status+") "+body);}meds=await res.json();statusEl.style.display='none';render();}catch(err){statusEl.textContent="Error al cargar datos: "+err.message;statusEl.className='error';}}
-function filterMeds(medsList){if(!searchQuery)return medsList;const q=searchQuery.toLowerCase().trim();return medsList.filter(m=>(m.Nombre||"").toLowerCase().includes(q)||(m.Laboratorio||"").toLowerCase().includes(q)||(m.Lote||"").toLowerCase().includes(q));}
-function render(){const filtered=filterMeds(meds);const soon=filtered.filter(m=>daysT
+const HEADERS = {
+  "apikey": SUPABASE_ANON_KEY,
+  "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+  "Content-Type": "application/json",
+  "Prefer": "return=representation"
+};
+
+function getSavedSession() {
+  const raw = localStorage.getItem("farmacia_session") || sessionStorage.getItem("farmacia_session");
+  try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+
+function setSession(data, remember) {
+  const storage = remember ? localStorage : sessionStorage;
+  const other = remember ? sessionStorage : localStorage;
+  other.removeItem("farmacia_session");
+  storage.setItem("farmacia_session", JSON.stringify({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token
+  }));
+}
+
+function setHeadersToken(token) {
+  HEADERS.Authorization = "Bearer " + token;
+  return HEADERS;
+}
+
+async function refreshSession() {
+  const session = getSavedSession();
+  if (!session?.refresh_token) return false;
+  const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+    method: "POST",
+    headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: session.refresh_token })
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  const remember = !!localStorage.getItem("farmacia_session");
+  setSession(data, remember);
+  setHeadersToken(data.access_token);
+  return true;
+}
+
+async function login(email, password, remember) {
+  const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  if (!res.ok) throw new Error("Credenciales inválidas");
+  const data = await res.json();
+  setSession(data, remember);
+  return data.access_token;
+}
+
+function logout() {
+  localStorage.removeItem("farmacia_session");
+  sessionStorage.removeItem("farmacia_session");
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  loadMeds();
+}
+
+function showLogin() {
+  document.getElementById("login-screen").style.display = "block";
+  document.getElementById("app-screen").style.display = "none";
+}
+
+// Menú handler
+const menuBtn = document.getElementById("menu-btn");
+const menuPanel = document.getElementById("menu-panel");
+if (menuBtn && menuPanel) {
+  menuBtn.onclick = () => {
+    const open = menuPanel.classList.toggle("open");
+    menuBtn.setAttribute("aria-expanded", open);
+  };
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".menu-wrap")) {
+      menuPanel.classList.remove("open");
+      menuBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+document.getElementById("login-btn").onclick = async () => {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-pass").value;
+  const remember = document.getElementById("login-remember").checked;
+  const errEl = document.getElementById("login-error");
+  errEl.style.display = "none";
+  try {
+    const token = await login(email, password, remember);
+    setHeadersToken(token);
+    showApp();
+  } catch (err) {
+    errEl.style.display = "block";
+  }
+};
+
+document.getElementById("logout-btn").onclick = logout;
+document.getElementById("change-pass-btn").onclick = cambiarContrasena;
+
+document.getElementById("forgot-pass-link").onclick = async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) {
+    alert("Escribe tu correo arriba primero.");
+    return;
+  }
+  try {
+    await fetch(SUPABASE_URL + "/auth/v1/recover", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    alert("Si ese correo está registrado, te llegará un link.");
+  } catch (err) {
+    alert("No se pudo enviar el correo.");
+  }
+};
+
+async function cambiarContrasena() {
+  const nueva = prompt("Escribe tu nueva contraseña (mínimo 6 caracteres):");
+  if (!nueva) return;
+  if (nueva.length < 6) {
+    alert("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
+  try {
+    const res = await fetch(SUPABASE_URL + "/auth/v1/user", {
+      method: "PUT",
+      headers: HEADERS,
+      body: JSON.stringify({ password: nueva })
+    });
+    if (!res.ok) throw new Error("Error " + res.status);
+    alert("Contraseña actualizada correctamente.");
+  } catch (err) {
+    alert("No se pudo cambiar la contraseña.");
+  }
+}
+
+let historyVisible = false;
+let kardexVisible = false;
+
+document.getElementById("kardex-btn").onclick = async () => {
+  kardexVisible = !kardexVisible;
+  const panel = document.getElementById("kardex-panel");
+  const histPanel = document.getElementById("history-panel");
+  panel.style.display = kardexVisible ? "block" : "none";
+  if (kardexVisible) {
+    histPanel.style.display = "none";
+    await loadKardex();
+  }
+};
+
+document.getElementById("history-btn").onclick = async () => {
+  historyVisible = !historyVisible;
+  const panel = document.getElementById("history-panel");
+  const kardexPanel = document.getElementById("kardex-panel");
+  panel.style.display = historyVisible ? "block" : "none";
+  if (historyVisible) {
+    kardexPanel.style.display = "none";
+    await loadHistory();
+  }
+};
+
+async function loadHistory() {
+  const listEl = document.getElementById("history-list");
+  listEl.innerHTML = '<p style="font-size:13px;color:var(--gray-text);">Cargando...</p>';
+  try {
+    const res = await fetch(MOVIMIENTOS_URL + "?select=*&order=created_at.desc&limit=30", { headers: HEADERS });
+    if (!res.ok) throw new Error("No se pudo cargar (" + res.status + ")");
+    const movimientos = await res.json();
+    if (movimientos.length === 0) {
+      listEl.innerHTML = '<p style="font-size:13px;color:var(--gray-text);">Todavía no hay movimientos registrados.</p>';
+      return;
+    }
+    listEl.innerHTML = movimientos.map(mv => {
+      const fecha = new Date(mv.created_at).toLocaleString('es-BO', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+      const signo = mv.Cantidad > 0 ? '+' : '';
+      const etiqueta = mv.Tipo === 'alta' ? 'Alta' : (mv.Tipo === 'entrada' ? 'Entrada' : 'Salida');
+      return '<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid var(--border);padding:6px 0;">' +
+        '<span>' + fecha + ' &middot; ' + escapeHtml(mv.Medicamento_nombre || '') + '</span>' +
+        '<span style="white-space:nowrap;margin-left:8px;">' + etiqueta + ' (' + signo + mv.Cantidad + ') &rarr; ' + mv.Stock_resultante + '</span>' +
+      '</div>';
+    }).join('');
+  } catch (err) {
+    listEl.innerHTML = '<p style="font-size:13px;color:var(--red);">Error al cargar historial: ' + err.message + '</p>';
+  }
+}
+
+async function loadKardex() {
+  const listEl = document.getElementById("kardex-list");
+  const searchInput = document.getElementById("kardex-search");
+  const filterSelect = document.getElementById("kardex-filter");
+  listEl.innerHTML = '<p style="font-size:13px;color:var(--gray-text);">Cargando kardex...</p>';
+  try {
+    const res = await fetch(MOVIMIENTOS_URL + "?select=*&order=created_at.desc&limit=500", { headers: HEADERS });
+    if (!res.ok) throw new Error("No se pudo cargar: " + res.status);
+    let movimientos = await res.json();
+    
+    const filterMov = () => {
+      const q = searchInput.value.toLowerCase().trim();
+      const tipo = filterSelect.value;
+      let filtered = movimientos;
+      if (q) filtered = filtered.filter(m => (m.Medicamento_nombre || "").toLowerCase().includes(q));
+      if (tipo) filtered = filtered.filter(m => m.Tipo === tipo);
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<p style="font-size:13px;color:var(--gray-text)">No hay movimientos que coincidan.</p>';
+        return;
+      }
+      listEl.innerHTML = filtered.map(mv => {
+        const fecha = new Date(mv.created_at).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+        const signo = mv.Cantidad >= 0 ? "+" : "";
+        const etiqueta = mv.Tipo === "alta" ? "Alta" : mv.Tipo === "entrada" ? "Entrada" : "Salida";
+        const badgeClass = mv.Tipo === "salida" ? "badge expired" : "badge ok";
+        return '<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid var(--border);padding:6px 0">' +
+          '<div><span style="font-weight:600">' + fecha + '</span> · ' + (mv.Medicamento_nombre || "Sin nombre") + (mv.Medicamento_laboratorio ? ' · ' + mv.Medicamento_laboratorio : '') + '</div>' +
+          '<div><span class="' + badgeClass + '" style="white-space:nowrap;margin-left:8px">' + etiqueta + ' ' + signo + mv.Cantidad + '</span> <span style="font-size:11px;color:var(--gray-text)">→ Stock: ' + mv.Stock_resultante + '</span></div>' +
+        '</div>';
+      }).join("");
+    };
+    
+    filterMov();
+    searchInput.oninput = filterMov;
+    filterSelect.onchange = filterMov;
+  } catch (err) {
+    listEl.innerHTML = '<p style="font-size:13px;color:var(--red)">Error al cargar kardex: ' + err.message + '</p>';
+  }
+}
+
+// Al cargar la página
+const savedSession = getSavedSession();
+if (savedSession?.access_token) {
+  setHeadersToken(savedSession.access_token);
+  showApp();
+} else {
+  showLogin();
+  if (sessionStorage.getItem("farmacia_session_expired")) {
+    sessionStorage.removeItem("farmacia_session_expired");
+    const errEl = document.getElementById("login-error");
+    errEl.textContent = "Tu sesión expiró, inicia sesión de nuevo.";
+    errEl.style.display = "block";
+  }
+}
+
+const DAY = 86400000;
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+let meds = [];
+let searchQuery = "";
+
+function fmtDate(iso) {
+  const d = new Date(iso + "T00:00
