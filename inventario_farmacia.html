@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario de farmacia</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0B8457">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #0B8457;
+    --primary-light: #DEF5EA;
+    --primary-dark: #076140;
+    --amber: #C96A11;
+    --amber-light: #FBEBD8;
+    --yellow: #A6820A;
+    --yellow-light: #FAF3D6;
+    --red: #D6394A;
+    --red-light: #FBE4E7;
+    --ink: #12211C;
+    --gray-text: #5B6B65;
+    --border: #DCE3DF;
+    --bg: #F2F7F5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    margin: 0;
+    padding: 16px;
+    color: var(--ink);
+  }
+  h1, h2, .stat-value, button { font-family: "Sora", -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 13px; color: var(--gray-text); margin: 0 0 20px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .stat-label { font-size: 12px; color: var(--gray-text); margin: 0 0 4px; }
+  .stat-value { font-size: 27px; font-weight: 700; margin: 0; }
+  .stat-value.warn { color: var(--amber); }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .toolbar h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  button {
+    font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border); background: white; border-radius: 8px;
+    padding: 8px 14px; color: var(--ink);
+  }
+  button:hover { background: #EAF2EF; }
+  button.primary { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
+  button.primary:hover { background: var(--primary-dark); }
+
+  #list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .med-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+  .med-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .med-name { font-size: 14px; font-weight: 600; margin: 0; }
+  .med-exp { font-size: 12px; color: var(--gray-text); margin: 2px 0 0; }
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .badge.ok { background: var(--primary-light); color: var(--primary-dark); }
+  .badge.soon { background: var(--amber-light); color: var(--amber); }
+  .badge.low { background: var(--yellow-light); color: var(--yellow); }
+  .badge.expired { background: var(--red-light); color: var(--red); }
+  .med-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .med-stock { font-size: 12px; color: var(--gray-text); }
+  .med-stock b { color: var(--ink); }
+  .qty-controls { display: flex; gap: 4px; flex-wrap: wrap; }
+  .qty-controls button { width: 30px; height: 30px; padding: 0; font-size: 15px; }
+  .sell-btn { width: auto !important; padding: 0 10px !important; font-size: 12px !important; background: var(--primary-light); color: var(--primary-dark); border-color: var(--primary-light); }
+  .del-btn { border-color: var(--red-light); color: var(--red); }
+
+  #form-wrap {
+    display: none; background: white; border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; margin-bottom: 20px;
+  }
+  #form-wrap p.title { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+  #form-wrap input {
+    width: 100%; font-size: 14px; padding: 9px 10px; border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 8px; font-family: inherit;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #f-error { display: none; font-size: 12px; color: var(--red); margin: 0 0 8px; }
+  .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .form-actions button { flex: 1; }
+
+  #status-msg { font-size: 13px; color: var(--gray-text); text-align: center; padding: 20px 0; }
+  #status-msg.error { color: var(--red); }
+
+  .lab-header {
+    font-size: 12px; font-weight: 600; color: var(--gray-text);
+    text-transform: uppercase; letter-spacing: 0.03em;
+    margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+  }
+  .lab-header:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+<div id="login-screen" style="max-width:360px;margin:60px auto;background:white;border:1px solid var(--border);border-radius:12px;padding:24px;">
+  <h1 style="text-align:center;">Inventario de farmacia</h1>
+  <p class="subtitle" style="text-align:center;">Inicia sesión para continuar</p>
+  <input id="login-email" type="email" placeholder="Correo" style="width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-family:inherit;">
+  <input id="login-pass" type="password" placeholder="Contraseña" style="width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-family:inherit;">
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gray-text);margin-bottom:8px;">
+    <input type="checkbox" id="login-remember" checked style="width:auto;">
+    Recuérdame en este dispositivo
+  </label>
+  <p id="login-error" style="display:none;font-size:12px;color:var(--red);margin:0 0 8px;">Correo o contraseña incorrectos.</p>
+  <button class="primary" id="login-btn" style="width:100%;">Iniciar sesión</button>
+  <p style="text-align:center;margin-top:12px;">
+    <a href="#" id="forgot-pass-link" style="font-size:12px;color:var(--primary);">¿Olvidaste tu contraseña?</a>
+  </p>
+</div>
+
+<div id="app-screen" style="display:none;">
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <h1>Inventario de farmacia</h1>
+      <p class="subtitle">Alertas de vencimiento y reposición de stock</p>
+    </div>
+    <div style="position:relative;">
+      <button id="menu-btn" style="font-size:18px;padding:6px 12px;line-height:1;">&#8942;</button>
+      <div id="menu-dropdown" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:white;border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);min-width:160px;z-index:10;overflow:hidden;">
+        <button id="history-btn" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:13px;padding:10px 14px;background:white;">Historial</button>
+        <button id="change-pass-btn" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:13px;padding:10px 14px;background:white;border-top:1px solid var(--border);">Cambiar contraseña</button>
+        <button id="logout-btn" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:13px;padding:10px 14px;background:white;border-top:1px solid var(--border);color:var(--red);">Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <h2>Medicamentos</h2>
+    <button class="primary" id="btn-add">+ Agregar</button>
+  </div>
+
+  <input id="search-box" type="text" placeholder="Buscar medicamento por nombre..." style="width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font-family:inherit;">
+
+  <div id="form-wrap">
+    <p class="title">Nuevo medicamento</p>
+    <input id="f-name" type="text" placeholder="Nombre (ej. Amoxicilina 500mg)">
+    <div class="row2">
+      <input id="f-qty" type="number" min="0" placeholder="Cantidad">
+      <input id="f-min" type="number" min="0" placeholder="Stock mínimo">
+    </div>
+    <input id="f-exp" type="date">
+    <select id="f-presentacion" style="width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-family:inherit;background:white;">
+      <option value="">Presentación (opcional)</option>
+      <option value="Comprimidos">Comprimidos</option>
+      <option value="Cápsulas">Cápsulas</option>
+      <option value="Jarabe">Jarabe</option>
+      <option value="Ampollas">Ampollas</option>
+      <option value="Sobres">Sobres</option>
+      <option value="Crema/Pomada">Crema/Pomada</option>
+      <option value="Gotas">Gotas</option>
+      <option value="Otro">Otro</option>
+    </select>
+    <input id="f-lab" type="text" placeholder="Laboratorio (ej. Bagó, Roemmers)">
+    <input id="f-lote" type="text" placeholder="Lote (opcional)">
+    <p id="f-error">Completa nombre, cantidad y fecha de vencimiento.</p>
+    <div class="form-actions">
+      <button class="primary" id="f-save">Guardar</button>
+      <button id="f-cancel">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="status-msg">Cargando inventario...</div>
+  <div id="list"></div>
+
+  <div id="history-panel" style="display:none;background:white;border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:20px;">
+    <p style="font-size:14px;font-weight:600;margin:0 0 12px;">Últimos movimientos</p>
+    <div class="row2" style="margin-bottom:10px;">
+      <input id="history-search" type="text" placeholder="Buscar por medicamento..." style="font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;">
+      <select id="history-tipo" style="font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;background:white;">
+        <option value="">Todos los tipos</option>
+        <option value="alta">Altas</option>
+        <option value="entrada">Entradas</option>
+        <option value="salida">Salidas</option>
+      </select>
+    </div>
+    <div id="history-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+</div>
+</div>
+
+<script>
+// --- Configuración de conexión a Supabase ---
+const SUPABASE_URL = "https://evrgtdoltmudexfbuwil.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2cmd0ZG9sdG11ZGV4ZmJ1d2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNDg4ODEsImV4cCI6MjEwMzYyNDg4MX0.l7rmVqrl6BN-c1NQqFmXWnlQa0vdPmaF42X_xjld92Y";
+const TABLE_URL = SUPABASE_URL + "/rest/v1/Medicamentos";
+const MOVIMIENTOS_URL = SUPABASE_URL + "/rest/v1/movimientos";
+const HEADERS = {
+  "apikey": SUPABASE_ANON_KEY,
+  "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+  "Content-Type": "application/json",
+  "Prefer": "return=representation"
+};
+
+// --- Login con Supabase Auth (con renovación automática de sesión) ---
+function getSavedToken() {
+  return localStorage.getItem("farmacia_access_token") || sessionStorage.getItem("farmacia_access_token");
+}
+function getSavedRefreshToken() {
+  return localStorage.getItem("farmacia_refresh_token") || sessionStorage.getItem("farmacia_refresh_token");
+}
+function getRememberFlag() {
+  return localStorage.getItem("farmacia_remember") === "1";
+}
+function setHeadersToken(token) {
+  HEADERS["Authorization"] = "Bearer " + (token || SUPABASE_ANON_KEY);
+}
+
+function saveSession(accessToken, refreshToken, remember) {
+  const storage = remember ? localStorage : sessionStorage;
+  storage.setItem("farmacia_access_token", accessToken);
+  storage.setItem("farmacia_refresh_token", refreshToken);
+  if (remember) localStorage.setItem("farmacia_remember", "1");
+}
+
+async function login(email, password, remember) {
+  const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  if (!res.ok) throw new Error("Credenciales inválidas");
+  const data = await res.json();
+  saveSession(data.access_token, data.refresh_token, remember);
+  return data.access_token;
+}
+
+// Pide un access token nuevo usando el refresh token guardado, sin pedir contraseña de nuevo
+async function refreshAccessToken() {
+  const rt = getSavedRefreshToken();
+  if (!rt) return null;
+  try {
+    const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: rt })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    saveSession(data.access_token, data.refresh_token, getRememberFlag());
+    setHeadersToken(data.access_token);
+    return data.access_token;
+  } catch (err) {
+    return null;
+  }
+}
+
+function logout() {
+  localStorage.removeItem("farmacia_access_token");
+  localStorage.removeItem("farmacia_refresh_token");
+  localStorage.removeItem("farmacia_remember");
+  sessionStorage.removeItem("farmacia_access_token");
+  sessionStorage.removeItem("farmacia_refresh_token");
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  loadMeds();
+}
+function showLogin() {
+  document.getElementById("login-screen").style.display = "block";
+  document.getElementById("app-screen").style.display = "none";
+}
+
+document.getElementById("login-btn").onclick = async () => {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-pass").value;
+  const remember = document.getElementById("login-remember").checked;
+  const errEl = document.getElementById("login-error");
+  errEl.style.display = "none";
+  try {
+    const token = await login(email, password, remember);
+    setHeadersToken(token);
+    showApp();
+  } catch (err) {
+    errEl.style.display = "block";
+  }
+};
+document.getElementById("logout-btn").onclick = logout;
+document.getElementById("change-pass-btn").onclick = cambiarContrasena;
+
+// --- Menú desplegable (⋮) ---
+const menuBtn = document.getElementById("menu-btn");
+const menuDropdown = document.getElementById("menu-dropdown");
+menuBtn.onclick = (e) => {
+  e.stopPropagation();
+  menuDropdown.style.display = menuDropdown.style.display === "block" ? "none" : "block";
+};
+document.addEventListener("click", (e) => {
+  if (!menuDropdown.contains(e.target) && e.target !== menuBtn) {
+    menuDropdown.style.display = "none";
+  }
+});
+// Cierra el menú al elegir cualquier opción
+["history-btn", "change-pass-btn", "logout-btn"].forEach(id => {
+  document.getElementById(id).addEventListener("click", () => {
+    menuDropdown.style.display = "none";
+  });
+});
+
+// --- Olvidé mi contraseña (manda un correo con link para restablecer) ---
+document.getElementById("forgot-pass-link").onclick = async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) {
+    alert("Escribe tu correo arriba primero, y luego toca este link de nuevo.");
+    return;
+  }
+  try {
+    await fetch(SUPABASE_URL + "/auth/v1/recover", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    alert("Si ese correo está registrado, te llegará un link para restablecer tu contraseña.");
+  } catch (err) {
+    alert("No se pudo enviar el correo. Revisa tu conexión.");
+  }
+};
+
+// --- Cambiar contraseña (con sesión ya iniciada) ---
+async function cambiarContrasena() {
+  const nueva = prompt("Escribe tu nueva contraseña (mínimo 6 caracteres):");
+  if (!nueva) return;
+  if (nueva.length < 6) {
+    alert("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
+  try {
+    const res = await fetch(SUPABASE_URL + "/auth/v1/user", {
+      method: "PUT",
+      headers: HEADERS,
+      body: JSON.stringify({ password: nueva })
+    });
+    if (!res.ok) throw new Error("Error " + res.status);
+    alert("Contraseña actualizada correctamente.");
+  } catch (err) {
+    alert("No se pudo cambiar la contraseña. Intenta cerrar sesión y volver a entrar.");
+  }
+}
+
+
+let historyVisible = false;
+let movimientosCache = [];
+document.getElementById("history-btn").onclick = async () => {
+  historyVisible = !historyVisible;
+  const panel = document.getElementById("history-panel");
+  panel.style.display = historyVisible ? "block" : "none";
+  if (historyVisible) {
+    await loadHistory();
+  }
+};
+
+async function loadHistory() {
+  const listEl = document.getElementById("history-list");
+  listEl.innerHTML = '<p style="font-size:13px;color:var(--gray-text);">Cargando...</p>';
+  try {
+    const res = await fetch(
+      MOVIMIENTOS_URL + "?select=*&order=created_at.desc&limit=100",
+      { headers: HEADERS }
+    );
+    if (!res.ok) throw new Error("No se pudo cargar (" + res.status + ")");
+    movimientosCache = await res.json();
+    renderHistory();
+  } catch (err) {
+    listEl.innerHTML = '<p style="font-size:13px;color:var(--red);">Error al cargar historial: ' + err.message + '</p>';
+  }
+}
+
+function renderHistory() {
+  const listEl = document.getElementById("history-list");
+  const query = document.getElementById("history-search").value.trim().toLowerCase();
+  const tipoFiltro = document.getElementById("history-tipo").value;
+
+  let filtrados = movimientosCache;
+  if (query) {
+    filtrados = filtrados.filter(mv => (mv.Medicamento_nombre || '').toLowerCase().includes(query));
+  }
+  if (tipoFiltro) {
+    filtrados = filtrados.filter(mv => mv.Tipo === tipoFiltro);
+  }
+
+  if (filtrados.length === 0) {
+    listEl.innerHTML = '<p style="font-size:13px;color:var(--gray-text);">Ningún movimiento coincide con el filtro.</p>';
+    return;
+  }
+  listEl.innerHTML = filtrados.slice(0, 30).map(mv => {
+    const fecha = new Date(mv.created_at).toLocaleString('es-BO', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    const signo = mv.Cantidad > 0 ? '+' : '';
+    const etiqueta = mv.Tipo === 'alta' ? 'Alta' : (mv.Tipo === 'entrada' ? 'Entrada' : 'Salida');
+    return '<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid var(--border);padding:6px 0;">' +
+      '<span>' + fecha + ' &middot; ' + escapeHtml(mv.Medicamento_nombre || '') + '</span>' +
+      '<span style="white-space:nowrap;margin-left:8px;">' + etiqueta + ' (' + signo + mv.Cantidad + ') &rarr; ' + mv.Stock_resultante + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+document.getElementById("history-search").addEventListener("input", renderHistory);
+document.getElementById("history-tipo").addEventListener("change", renderHistory);
+
+// Al cargar la página: si hay refresh token guardado, renovamos la sesión en silencio
+(async function initSession() {
+  const rt = getSavedRefreshToken();
+  if (rt) {
+    const freshToken = await refreshAccessToken();
+    if (freshToken) {
+      showApp();
+      return;
+    }
+  }
+  const savedToken = getSavedToken();
+  if (savedToken) {
+    setHeadersToken(savedToken);
+    showApp();
+    return;
+  }
+  showLogin();
+  if (sessionStorage.getItem("farmacia_session_expired")) {
+    sessionStorage.removeItem("farmacia_session_expired");
+    const errEl = document.getElementById("login-error");
+    errEl.textContent = "Tu sesión expiró, inicia sesión de nuevo.";
+    errEl.style.display = "block";
+  }
+})();
+
+const DAY = 86400000;
+const today = new Date(); today.setHours(0,0,0,0);
+let meds = [];
+
+function fmtDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function daysTo(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return Math.round((d - today) / DAY);
+}
+function status(m) {
+  const d = daysTo(m.Fecha_vencimiento);
+  const lowStock = m.Cantidad <= m.Stock_minimo;
+  if (d < 0) return { label: 'Vencido', cls: 'expired' };
+  if (d <= 30) return { label: 'Vence en ' + d + ' días', cls: 'soon' };
+  if (lowStock) return { label: 'Stock bajo', cls: 'low' };
+  return { label: 'En orden', cls: 'ok' };
+}
+
+async function loadMeds() {
+  const statusEl = document.getElementById('status-msg');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Cargando inventario...';
+  statusEl.className = '';
+  try {
+    let res = await fetch(TABLE_URL + "?select=*&order=Fecha_vencimiento.asc", { headers: HEADERS });
+    if (res.status === 401) {
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
+        res = await fetch(TABLE_URL + "?select=*&order=Fecha_vencimiento.asc", { headers: HEADERS });
+      }
+    }
+    if (res.status === 401) {
+      sessionStorage.setItem("farmacia_session_expired", "1");
+      logout();
+      return;
+    }
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error("(" + res.status + ") " + body);
+    }
+    meds = await res.json();
+    statusEl.style.display = 'none';
+    render();
+  } catch (err) {
+    statusEl.textContent = "Error al cargar datos: " + err.message;
+    statusEl.className = 'error';
+  }
+}
+
+function render() {
+  const soon = meds.filter(m => daysTo(m.Fecha_vencimiento) <= 30).length;
+  const low = meds.filter(m => m.Cantidad <= m.Stock_minimo).length;
+
+  document.getElementById('stats').innerHTML =
+    '<div class="stat-card"><p class="stat-label">Por vencer (30 días)</p>' +
+    '<p class="stat-value ' + (soon ? 'warn' : '') + '">' + soon + '</p></div>' +
+    '<div class="stat-card"><p class="stat-label">Para reponer</p>' +
+    '<p class="stat-value ' + (low ? 'warn' : '') + '">' + low + '</p></div>';
+
+  if (meds.length === 0) {
+    document.getElementById('list').innerHTML = '<p style="font-size:13px;color:var(--gray-text);text-align:center;padding:20px 0;">No hay medicamentos registrados todavía.</p>';
+    return;
+  }
+
+  const query = document.getElementById('search-box').value.trim().toLowerCase();
+  const medsFiltrados = query
+    ? meds.filter(m => (m.Nombre || '').toLowerCase().includes(query))
+    : meds;
+
+  if (medsFiltrados.length === 0) {
+    document.getElementById('list').innerHTML = '<p style="font-size:13px;color:var(--gray-text);text-align:center;padding:20px 0;">Ningún medicamento coincide con "' + escapeHtml(query) + '".</p>';
+    return;
+  }
+
+  // Agrupar por laboratorio (los que no tienen laboratorio van al final, bajo "Sin laboratorio")
+  const grupos = {};
+  medsFiltrados.forEach(m => {
+    const lab = m.laboratorios && m.laboratorios.trim() ? m.laboratorios.trim() : 'Sin laboratorio';
+    if (!grupos[lab]) grupos[lab] = [];
+    grupos[lab].push(m);
+  });
+  const labsOrdenados = Object.keys(grupos).sort((a, b) => {
+    if (a === 'Sin laboratorio') return 1;
+    if (b === 'Sin laboratorio') return -1;
+    return a.localeCompare(b);
+  });
+
+  let html = '';
+  labsOrdenados.forEach(lab => {
+    html += '<div class="lab-header">' + escapeHtml(lab) + '</div>';
+    grupos[lab].forEach(m => {
+      const s = status(m);
+      html += '<div class="med-card">' +
+        '<div class="med-top">' +
+          '<div><p class="med-name">' + escapeHtml(m.Nombre || '') + '</p>' +
+          '<p class="med-exp">' + (m.presentacion ? escapeHtml(m.presentacion) + ' &middot; ' : '') + 'Vence ' + fmtDate(m.Fecha_vencimiento) + (m.Lote ? ' &middot; Lote ' + escapeHtml(m.Lote) : '') + '</p></div>' +
+          '<span class="badge ' + s.cls + '">' + s.label + '</span>' +
+        '</div>' +
+        '<div class="med-bottom">' +
+          '<p class="med-stock">Stock: <b>' + m.Cantidad + '</b> (mín. ' + m.Stock_minimo + ')</p>' +
+          '<div class="qty-controls">' +
+            '<button class="sell-btn" onclick="venderCantidad(' + m.id + ')">Vender</button>' +
+            '<button onclick="changeQty(' + m.id + ', -1)" aria-label="Restar">-</button>' +
+            '<button onclick="changeQty(' + m.id + ', 1)" aria-label="Sumar">+</button>' +
+            '<button class="del-btn" onclick="deleteMed(' + m.id + ')" aria-label="Eliminar">✕</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    });
+  });
+  document.getElementById('list').innerHTML = html;
+}
+
+async function venderCantidad(id) {
+  const m = meds.find(x => x.id === id);
+  if (!m) return;
+  const input = prompt('¿Cuántas unidades de "' + m.Nombre + '" vendiste?', '1');
+  if (input === null) return;
+  const cantidadVendida = parseInt(input, 10);
+  if (isNaN(cantidadVendida) || cantidadVendida <= 0) {
+    alert('Ingresa un número válido mayor a 0.');
+    return;
+  }
+  const newQty = Math.max(0, m.Cantidad - cantidadVendida);
+  m.Cantidad = newQty;
+  render();
+  try {
+    await fetch(TABLE_URL + "?id=eq." + id, {
+      method: "PATCH",
+      headers: HEADERS,
+      body: JSON.stringify({ Cantidad: newQty })
+    });
+  } catch (err) {
+    alert("No se pudo guardar la venta. Revisa tu conexión.");
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function registrarMovimiento(medId, nombre, tipo, cantidad, stockResultante) {
+  try {
+    await fetch(MOVIMIENTOS_URL, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({
+        Medicamento_id: medId,
+        Medicamento_nombre: nombre,
+        Tipo: tipo,
+        Cantidad: cantidad,
+        Stock_resultante: stockResultante
+      })
+    });
+  } catch (err) {
+    console.log("No se pudo registrar el movimiento:", err);
+  }
+}
+
+async function changeQty(id, delta) {
+  const m = meds.find(x => x.id === id);
+  if (!m) return;
+  const newQty = Math.max(0, m.Cantidad + delta);
+  const cambioReal = newQty - m.Cantidad;
+  m.Cantidad = newQty;
+  render();
+  try {
+    await fetch(TABLE_URL + "?id=eq." + id, {
+      method: "PATCH",
+      headers: HEADERS,
+      body: JSON.stringify({ Cantidad: newQty })
+    });
+    if (cambioReal !== 0) {
+      registrarMovimiento(id, m.Nombre, cambioReal > 0 ? "entrada" : "salida", cambioReal, newQty);
+    }
+  } catch (err) {
+    alert("No se pudo guardar el cambio. Revisa tu conexión.");
+  }
+}
+
+async function deleteMed(id) {
+  if (!confirm("¿Eliminar este medicamento del inventario?")) return;
+  try {
+    await fetch(TABLE_URL + "?id=eq." + id, { method: "DELETE", headers: HEADERS });
+    meds = meds.filter(m => m.id !== id);
+    render();
+  } catch (err) {
+    alert("No se pudo eliminar. Revisa tu conexión.");
+  }
+}
+
+document.getElementById('search-box').addEventListener('input', render);
+
+document.getElementById('btn-add').onclick = () => {
+  document.getElementById('form-wrap').style.display = 'block';
+};
+document.getElementById('f-cancel').onclick = () => {
+  document.getElementById('form-wrap').style.display = 'none';
+  document.getElementById('f-error').style.display = 'none';
+};
+document.getElementById('f-save').onclick = async () => {
+  const nombre = document.getElementById('f-name').value.trim();
+  const cantidad = document.getElementById('f-qty').value;
+  const stock_minimo = document.getElementById('f-min').value;
+  const fecha_vencimiento = document.getElementById('f-exp').value;
+  const presentacion = document.getElementById('f-presentacion').value;
+  const laboratorio = document.getElementById('f-lab').value.trim();
+  const lote = document.getElementById('f-lote').value.trim();
+
+  if (!nombre || cantidad === '' || !fecha_vencimiento) {
+    document.getElementById('f-error').style.display = 'block';
+    return;
+  }
+  document.getElementById('f-error').style.display = 'none';
+
+  const payload = {
+    Nombre: nombre,
+    Cantidad: Number(cantidad),
+    Stock_minimo: stock_minimo === '' ? 0 : Number(stock_minimo),
+    Fecha_vencimiento: fecha_vencimiento,
+    presentacion: presentacion || null,
+    laboratorios: laboratorio || null,
+    Lote: lote || null
+  };
+
+  try {
+    const res = await fetch(TABLE_URL, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error("(" + res.status + ") " + body);
+    }
+    const [nuevo] = await res.json();
+    meds.push(nuevo);
+    meds.sort((a, b) => a.Fecha_vencimiento.localeCompare(b.Fecha_vencimiento));
+    registrarMovimiento(nuevo.id, nuevo.Nombre, "alta", nuevo.Cantidad, nuevo.Cantidad);
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-qty').value = '';
+    document.getElementById('f-min').value = '';
+    document.getElementById('f-exp').value = '';
+    document.getElementById('f-presentacion').value = '';
+    document.getElementById('f-lab').value = '';
+    document.getElementById('f-lote').value = '';
+    document.getElementById('form-wrap').style.display = 'none';
+    render();
+  } catch (err) {
+    alert("No se pudo guardar el medicamento: " + err.message);
+  }
+};
+
+// Registra el service worker para que la app se pueda instalar
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch((err) => {
+      console.log("No se pudo registrar el service worker:", err);
+    });
+  });
+}
+
+</script>
+</body>
+</html>
